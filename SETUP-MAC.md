@@ -183,6 +183,28 @@ docker stats satisfactory-server     # RAM/CPU live
 ```
 Auto-Update beim Start: in `docker-compose.yml` `ALWAYS_UPDATE_ON_START=true|false`.
 
+### Updates (neue Satisfactory-Version)
+
+Zwei getrennte Dinge:
+
+- **Spielserver** (App 1690800): wird **nicht** ins Image gebaut, sondern von SteamCMD geladen.
+  Mit `ALWAYS_UPDATE_ON_START=true` prüft `init-server.sh` bei **jedem Start** auf die neueste
+  Version. Upgrade = einfach neu starten:
+  ```bash
+  docker compose down && docker compose up -d   # oder: docker compose restart
+  ```
+  → kann nicht veralten, kein Rebuild nötig. (Experimental-Branch: in `init-server.sh` vor
+  `validate` ein `-beta experimental` einfügen.)
+
+- **Image / FEX-Emu**: Der Dockerfile pinnt FEX bewusst auf einen alten Commit (neuere brechen den
+  Build). Das ist stabil und führt den aktuellen Server aus. Neu bauen **nur** wenn ein künftiges
+  Game-Update Crashes verursacht (FEX-Inkompatibilität) oder du Basis-Image-Sicherheitsupdates willst:
+  ```bash
+  docker compose down
+  docker build --no-cache --platform linux/arm64 -t satisfactory-arm64 .   # oder: sh build-nocache.sh
+  docker compose up -d
+  ```
+
 ## 11. Backup & Migration (z. B. auf den Mac mini)
 
 Wichtig zu wissen, **welcher Ordner was ist**:
