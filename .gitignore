@@ -4,7 +4,9 @@ scripts/.venv/
 .DS_Store
 
 # Laufzeit-/Spieldaten (per Volume gemountet) — gehören NICHT ins Repo
-# satisfactory/ = Server-Installation (~2.8 GB, wird per SteamCMD neu geladen)
+# serverfiles/ = Server-Installation (~3 GB, regenerierbar — wird per SteamCMD neu geladen)
 # config/ = Savegames + Servereinstellungen (separat sichern, siehe SETUP-MAC.md)
-satisfactory/
+serverfiles/
 config/
+# Altbestand (früherer Name der Installation), falls noch vorhanden:
+satisfactory/

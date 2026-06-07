@@ -63,10 +63,13 @@ cd satisfactory-server-mac-mini
 
 ## 3. Daten-Verzeichnisse anlegen
 
-Hier landen Savegame und Server-Config (per Volume gemountet):
+Zwei Ordner werden per Volume gemountet — **mit klar getrennter Bedeutung**:
+- `config/` = Savegames + Servereinstellungen → **das einzige, was du backuppen musst**
+- `serverfiles/` = Server-Installation (~3 GB) → **regenerierbar, kein Backup**
+
 ```bash
-mkdir -p satisfactory config
-chmod 777 satisfactory config init-server.sh
+mkdir -p serverfiles config
+chmod 777 serverfiles config init-server.sh
 chmod +x init-server.sh
 ```
 
@@ -98,7 +101,7 @@ Er „spielt" erst, sobald er **beansprucht** ist und eine **Session läuft** (S
 
 Die [`docker-compose.yml`](docker-compose.yml) ist direkt nutzbar (nichts anzupassen) und konfiguriert:
 - **Ports:** `7777/udp`, `7777/tcp`, `8888/tcp`
-- **Volumes:** `./satisfactory` (Installation), `./config` (Saves), `./init-server.sh` (Entrypoint)
+- **Volumes:** `./serverfiles` (Installation, regenerierbar), `./config` (Saves → Backup), `./init-server.sh` (Entrypoint)
 - **`ALWAYS_UPDATE_ON_START=true`** → Server-Auto-Update bei jedem Start (Abschnitt 10)
 - **`EXTRA_PARAMS`** → Startargumente des Servers (Logging etc.; hier auch Ports per `-Port=` o. Ä. änderbar)
 - **`restart: unless-stopped`** → Container kommt nach Reboot/Absturz von selbst wieder hoch
@@ -225,7 +228,7 @@ Zwei getrennte Dinge:
 ## 11. Backup & Migration (z. B. auf den Mac mini)
 
 Wichtig zu wissen, **welcher Ordner was ist**:
-- `./satisfactory` = die Server-**Installation** (~2,8 GB). **Nicht** sichern — wird per SteamCMD neu geladen.
+- `./serverfiles` = die Server-**Installation** (~3 GB). **Nicht** sichern — wird per SteamCMD neu geladen.
 - `./config` = **Savegames + Servereinstellungen**. **Das ist das Wertvolle.**
   - Saves: `./config/FactoryGame/Saved/SaveGames/server/*.sav`
   - Servereinstellungen: `./config/FactoryGame/Saved/SaveGames/ServerSettings.7777.sav`
@@ -235,7 +238,7 @@ Wichtig zu wissen, **welcher Ordner was ist**:
 **Umzug auf den Mac mini:** Auf dem mini Schritte 1–5 durchführen, Server **stoppen**
 (`docker compose down`), dann den Inhalt von `./config` vom alten Mac in das `./config` des minis
 kopieren, wieder `docker compose up -d`. Der Server lädt die vorhandene Session automatisch
-(`autoLoadSessionName`) — Schritt 6 entfällt dann. Die `./satisfactory`-Installation **nicht** kopieren.
+(`autoLoadSessionName`) — Schritt 6 entfällt dann. Die `./serverfiles`-Installation **nicht** kopieren.
 
 ---
 
@@ -245,7 +248,7 @@ kopieren, wieder `docker compose up -d`. Der Server lädt die vorhandene Session
 - **`sudo docker ...` schlägt fehl** → auf dem Mac `sudo` weglassen.
 - **Build bricht mit `Killed` ab** → RAM in Docker Desktop erhöhen (≥8 GB).
 - **`ERROR: I do not have read/write permissions to /satisfactory`** →
-  `chmod 777 satisfactory config` erneut ausführen.
+  `chmod 777 serverfiles config` erneut ausführen.
 - **`ERROR! Failed to install app '1690800' (Missing configuration)` beim ersten Start** →
   harmlos/normal. SteamCMD scheitert beim allerersten Versuch; weil `ALWAYS_UPDATE_ON_START=true`
   gesetzt ist, wird die Installation sofort automatisch wiederholt und läuft dann durch.
