@@ -51,10 +51,15 @@ Laufenden Verbrauch beobachten: `docker stats satisfactory-server`
 
 ## 2. Repo holen
 
+Dieses Repo enthält bereits **alle** Dateien des Upstream-Projekts (basiert auf
+`sa-shiro/Satisfactory-Dedicated-Server-ARM64-Docker`) **plus** diese Anleitung — du musst das
+Upstream-Repo **nicht** separat klonen. Auf einem neuen Rechner einfach dieses Repo holen:
 ```bash
-git clone https://github.com/sa-shiro/Satisfactory-Dedicated-Server-ARM64-Docker.git
-cd Satisfactory-Dedicated-Server-ARM64-Docker
+git clone https://github.com/JojoJohnDoe/satisfactory-server-mac-mini.git
+cd satisfactory-server-mac-mini
 ```
+> Falls du das Repo schon gepullt hast und in dem Ordner bist: **diesen Schritt überspringen**,
+> mit Schritt 3 weitermachen.
 
 ## 3. Daten-Verzeichnisse anlegen
 
