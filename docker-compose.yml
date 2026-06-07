@@ -5,10 +5,10 @@ services:
     ports:
       - '7777:7777/udp'
       - '7777:7777/tcp'
-      - '8888:8888/tcp'
+      - '${RELIABLE_PORT:-8888}:${RELIABLE_PORT:-8888}/tcp'
     restart: 'unless-stopped'
     environment:
-      - EXTRA_PARAMS=-log -unattended -ini:Engine:[HTTPServer.Listeners]:DefaultBindAddress=any
+      - EXTRA_PARAMS=-log -unattended -ReliablePort=${RELIABLE_PORT:-8888} -ini:Engine:[HTTPServer.Listeners]:DefaultBindAddress=any
       - ALWAYS_UPDATE_ON_START=true
     volumes:
       - '${GAMEDIR:?GAMEDIR muss in .env gesetzt sein - siehe SETUP-MAC.md}/serverfiles:/satisfactory'

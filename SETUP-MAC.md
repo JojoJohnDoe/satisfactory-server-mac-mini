@@ -83,6 +83,11 @@ chmod +x init-server.sh
 ```
 > Vorlage: [`.env.example`](.env.example). Die `.env` ist pro Maschine eigen und wird **nicht**
 > eingecheckt (gitignored) — auf dem mini also dort neu anlegen.
+>
+> **Optional:** Ist Port **8888** auf dem Host schon belegt (z. B. anderer Container), trag in die
+> `.env` zusätzlich `RELIABLE_PORT=7778` (oder einen anderen freien Port) ein. Dann nutzt Satisfactory
+> diesen für Reliable Messaging — auf Host **und** im Server. Den Tailscale-ACL-Grant (Schritt 8)
+> entsprechend anpassen (`8888` → dein Port).
 
 ## 4. Image bauen (FEX wird aus Quellcode kompiliert — dauert!)
 
@@ -111,7 +116,7 @@ Er „spielt" erst, sobald er **beansprucht** ist und eine **Session läuft** (S
 > deshalb zuerst Schritt 4 ausführen, sonst kommt „image not found".
 
 Die [`docker-compose.yml`](docker-compose.yml) braucht nur die `.env` aus Schritt 3 (sonst nichts anzupassen) und konfiguriert:
-- **Ports:** `7777/udp`, `7777/tcp`, `8888/tcp`
+- **Ports:** `7777/udp`, `7777/tcp`, `8888/tcp` (Reliable Messaging; via `RELIABLE_PORT` in `.env` änderbar, falls 8888 belegt ist)
 - **Volumes:** `$GAMEDIR/serverfiles` (Installation, regenerierbar), `$GAMEDIR/config` (Saves → Backup), `./init-server.sh` (Entrypoint aus dem Repo). `$GAMEDIR` kommt aus der `.env`.
 - **`ALWAYS_UPDATE_ON_START=true`** → Server-Auto-Update bei jedem Start (Abschnitt 10)
 - **`EXTRA_PARAMS`** → Startargumente des Servers (Logging etc.; hier auch Ports per `-Port=` o. Ä. änderbar)
@@ -186,6 +191,7 @@ Der gemappte Docker-Port (`0.0.0.0:7777`) ist automatisch über die Tailscale-IP
 
 // acls: geteilten Freunden NUR die Spielports erlauben (gilt für TCP & UDP)
 { "action": "accept", "src": ["autogroup:shared"], "dst": ["tag:satisfactory:7777,8888"] }
+// 8888 = Reliable-Messaging-Port; falls du in der .env RELIABLE_PORT geändert hast, hier denselben Port eintragen.
 ```
 Tag aufs Gerät: *Machines* → Gerät → `⋯` → **Edit ACL tags** → `tag:satisfactory`.
 
@@ -201,7 +207,7 @@ der Zugriff bleibt über deine ACL geregelt.
 | Port | Protokoll | Zweck |
 |------|-----------|-------|
 | 7777 | UDP + TCP | Game / Verbindung (ab Satisfactory 1.0 alles über 7777) |
-| 8888 | TCP | HTTPS-API |
+| 8888 | TCP | Reliable Messaging (Pflicht seit 1.1; via `RELIABLE_PORT` in `.env` änderbar) |
 
 ## 10. Betrieb / nützliche Befehle
 
@@ -262,6 +268,10 @@ kopieren, wieder `docker compose up -d`. Der Server lädt die vorhandene Session
   `chmod 777 "$GAMEDIR/serverfiles" "$GAMEDIR/config"` erneut ausführen.
 - **`GAMEDIR muss in .env gesetzt sein` / Volume-Fehler beim `up`** → im Repo-Ordner fehlt die `.env`
   oder `GAMEDIR` ist leer. `.env` anlegen (Schritt 3) mit absolutem Pfad (kein `~`).
+- **`Bind for 0.0.0.0:8888 failed: port is already allocated`** → ein anderer Dienst/Container belegt
+  Port 8888. Verursacher finden: `sudo lsof -nP -iTCP:8888 -sTCP:LISTEN | grep -i listen | awk '{print $1,$2}' | sort -u`
+  bzw. `docker ps --format '{{.Names}}: {{.Ports}}' | grep 8888`. Lösung: in der `.env` `RELIABLE_PORT=7778`
+  setzen (Schritt 3) und Tailscale-ACL anpassen — **oder** den anderen Dienst freimachen.
 - **`ERROR! Failed to install app '1690800' (Missing configuration)` beim ersten Start** →
   harmlos/normal. SteamCMD scheitert beim allerersten Versuch; weil `ALWAYS_UPDATE_ON_START=true`
   gesetzt ist, wird die Installation sofort automatisch wiederholt und läuft dann durch.
