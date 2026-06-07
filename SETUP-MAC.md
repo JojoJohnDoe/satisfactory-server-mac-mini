@@ -23,7 +23,7 @@
 - Docker-Desktop-Ressourcen (Settings → Resources):
   - **RAM: 10–12 GB einstellen** (Default ist oft 8 GB → erhöhen!). Begründung siehe
     „RAM-Planung" unten. Mind. 8 GB nur für den Build selbst.
-  - **Disk: mind. ~30 GB frei** (Image + Server-Download ~15 GB + Savegames).
+  - **Disk: mind. ~30 GB frei** (Image ~8 GB + Server-Install ~3 GB + FEX-Build-Layer + Savegames).
 - Ca. 30–60 Min Zeit für den ersten Build + Server-Download.
 
 Prüfen ob Docker läuft:
@@ -78,68 +78,27 @@ docker build --platform linux/arm64 -t satisfactory-arm64 .
 ```bash
 docker compose up -d
 ```
-Beim **ersten Start** lädt SteamCMD den kompletten Server herunter (~10–15 GB) — das dauert.
+Beim **ersten Start** lädt SteamCMD den Server herunter (~3 GB) — das dauert ein paar Minuten.
 Logs live ansehen:
 ```bash
 docker logs -f satisfactory-server
 ```
-Der Server ist bereit, sobald in den Logs Zeilen wie `Server is ready` / Tick-Meldungen erscheinen.
+Fertig, sobald `Server API listening on 0.0.0.0:7777` und `Engine is initialized` im Log stehen.
+Ein frisch gestarteter Server steht dann auf `WaitingToStart` (Auto-Pause) — das ist normal:
+Er „spielt" erst, sobald er **beansprucht** ist und eine **Session läuft** (Schritt 6).
 
-## 6. Verbinden (Satisfactory-Client)
+## 6. Server beanspruchen & Spiel anlegen (Pflicht nach dem ersten Start)
 
-Im Spiel: **Server Manager → Add Server** → `IP-DES-MAC:7777`.
-- Vom selben Rechner: `127.0.0.1:7777`.
-- Aus dem LAN: lokale IP des Macs (`ipconfig getifaddr en0`).
-- Aus dem Internet: Portweiterleitung im Router nötig (siehe Ports unten).
+Ohne diesen Schritt kann niemand beitreten (sonst `EncryptionTokenMissing`). Zwei Wege — einer reicht:
 
-**Server erstmalig in Betrieb nehmen (im Client):**
-1. Server hinzufügen → er erscheint als „Offline/Unclaimed".
-2. **Admin-Passwort setzen** (Server beanspruchen).
-3. Servernamen vergeben.
-4. **Create Game** (neues Spiel) oder ein hochgeladenes Savegame laden.
+### Variante A — im Spiel-Client (einfach)
+Hauptmenü → **Server Manager** → **Add Server** → `IP-DES-MAC:7777`:
+1. Server erscheint als „Offline/Unclaimed".
+2. **Admin-Passwort setzen** (beansprucht den Server) + Servernamen vergeben.
+3. **Create Game** (neues Spiel) oder ein vorhandenes Savegame laden.
 
-Hinweis: Ein frisch gestarteter Server steht im Log auf `WaitingToStart` / Auto-Pause —
-das ist normal. Er „spielt" erst, sobald ein Client eine Session erstellt/lädt.
-
-## 7. Ports
-
-| Port | Protokoll | Zweck |
-|------|-----------|-------|
-| 7777 | UDP + TCP | Game / Verbindung (ab Satisfactory 1.0 alles über 7777) |
-| 8888 | TCP | HTTPS-API |
-
-## 8. Betrieb / nützliche Befehle
-
-```bash
-docker compose up -d            # starten (Hintergrund)
-docker compose down             # stoppen
-docker logs -f satisfactory-server   # Logs
-docker compose restart          # neu starten
-```
-Auto-Update beim Start: in `docker-compose.yml` `ALWAYS_UPDATE_ON_START=true|false`.
-
-## 9. Backup & Migration (z. B. auf den Mac mini)
-
-Wichtig zu wissen, **welcher Ordner was ist**:
-- `./satisfactory` = die Server-**Installation** (~2,8 GB). **Nicht** sichern — wird per SteamCMD neu geladen.
-- `./config` = **Savegames + Servereinstellungen**. **Das ist das Wertvolle.**
-  - Saves: `./config/FactoryGame/Saved/SaveGames/server/*.sav`
-  - Servereinstellungen: `./config/FactoryGame/Saved/SaveGames/ServerSettings.7777.sav`
-
-**Backup:** nur `./config` sichern.
-
-**Umzug auf den Mac mini:** Auf dem mini ganz normal Schritte 1–5 durchführen, Server **stoppen**
-(`docker compose down`), dann den Inhalt von `./config` vom alten Mac in das `./config` des minis
-kopieren, wieder `docker compose up -d`. Der Server lädt die vorhandene Session automatisch
-(`autoLoadSessionName`). Die `./satisfactory`-Installation **nicht** kopieren — die zieht sich der mini selbst.
-
----
-
-## 10. Server beanspruchen & Spiel anlegen — headless per HTTPS-API (ohne Spiel-Client)
-
-Praktisch für den mini, wenn du den Server nicht extra im Spiel beanspruchen willst. Alles per `curl`
-gegen die HTTPS-API auf Port 7777 (`-k`, weil selbstsigniertes Zertifikat). `DEIN_PASSWORT` ersetzen:
-
+### Variante B — headless per HTTPS-API (ohne Spiel-Client, ideal für den mini)
+Alles per `curl` gegen die API auf Port 7777 (`-k` wegen selbstsigniertem Zertifikat). `DEIN_PASSWORT` ersetzen:
 ```bash
 API="https://localhost:7777/api/v1/"
 
@@ -166,12 +125,22 @@ curl -sk -X POST "$API" -H "Content-Type: application/json" -H "Authorization: B
 curl -sk -X POST "$API" -H "Content-Type: application/json" -H "Authorization: Bearer $ADMIN" \
   -d '{"function":"QueryServerState","data":{}}'
 ```
-`isGameRunning: true` in der Statusantwort = Welt läuft, Freunde können beitreten.
-Alternativ geht das alles auch im Spiel-Client (Abschnitt 6).
+`isGameRunning: true` in der Statusantwort = Welt läuft, jetzt kann beigetreten werden.
 
-## 11. Freunde per Tailscale verbinden (jeder mit eigenem Account)
+## 7. Verbinden (Satisfactory-Client)
 
-So müssen Freunde **keine** Portfreigabe/öffentliche IP — sie behalten ihren **eigenen** Tailscale-Account.
+Immer über den **Server Manager** verbinden — **nicht** über „Join Game"/direkte IP (sonst `EncryptionTokenMissing`):
+
+**Server Manager → Add Server** → Adresse:
+- Vom selben Rechner: `127.0.0.1:7777`
+- Aus dem LAN: lokale IP des Macs (`ipconfig getifaddr en0`)
+- Für Freunde von außerhalb: **Tailscale** (Schritt 8) — keine Portfreigabe nötig
+
+Sobald der Server **Online** angezeigt wird → **Join Game**.
+
+## 8. Freunde per Tailscale verbinden (jeder mit eigenem Account)
+
+So brauchen Freunde **keine** Portfreigabe/öffentliche IP — sie behalten ihren **eigenen** Tailscale-Account.
 Der gemappte Docker-Port (`0.0.0.0:7777`) ist automatisch über die Tailscale-IP des Macs erreichbar (TCP+UDP).
 
 **Auf dem Server-Mac (mini):**
@@ -193,8 +162,41 @@ Tag aufs Gerät: *Machines* → Gerät → `⋯` → **Edit ACL tags** → `tag:
 Getaggte Geräte **können** geteilt werden; der Tag wird nur auf der Empfänger-Seite ausgeblendet,
 der Zugriff bleibt über deine ACL geregelt.
 
-**Beim Freund:** Einladung annehmen (eigener Account) → Tailscale-Client „connected" →
-in Satisfactory **Server Manager → Add Server → `100.x.y.z:7777`** (Tailscale-IP des minis, **nicht** der kurze Name).
+**Beim Freund:** Einladung annehmen (eigener Account) → Tailscale-Client „connected" → in Satisfactory
+**Server Manager → Add Server → `100.x.y.z:7777`** (Tailscale-IP des minis, **nicht** der kurze Name).
+
+## 9. Ports
+
+| Port | Protokoll | Zweck |
+|------|-----------|-------|
+| 7777 | UDP + TCP | Game / Verbindung (ab Satisfactory 1.0 alles über 7777) |
+| 8888 | TCP | HTTPS-API |
+
+## 10. Betrieb / nützliche Befehle
+
+```bash
+docker compose up -d            # starten (Hintergrund)
+docker compose down             # stoppen
+docker logs -f satisfactory-server   # Logs
+docker compose restart          # neu starten
+docker stats satisfactory-server     # RAM/CPU live
+```
+Auto-Update beim Start: in `docker-compose.yml` `ALWAYS_UPDATE_ON_START=true|false`.
+
+## 11. Backup & Migration (z. B. auf den Mac mini)
+
+Wichtig zu wissen, **welcher Ordner was ist**:
+- `./satisfactory` = die Server-**Installation** (~2,8 GB). **Nicht** sichern — wird per SteamCMD neu geladen.
+- `./config` = **Savegames + Servereinstellungen**. **Das ist das Wertvolle.**
+  - Saves: `./config/FactoryGame/Saved/SaveGames/server/*.sav`
+  - Servereinstellungen: `./config/FactoryGame/Saved/SaveGames/ServerSettings.7777.sav`
+
+**Backup:** nur `./config` sichern.
+
+**Umzug auf den Mac mini:** Auf dem mini Schritte 1–5 durchführen, Server **stoppen**
+(`docker compose down`), dann den Inhalt von `./config` vom alten Mac in das `./config` des minis
+kopieren, wieder `docker compose up -d`. Der Server lädt die vorhandene Session automatisch
+(`autoLoadSessionName`) — Schritt 6 entfällt dann. Die `./satisfactory`-Installation **nicht** kopieren.
 
 ---
 
