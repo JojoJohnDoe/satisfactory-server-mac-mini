@@ -11,8 +11,8 @@ services:
       - EXTRA_PARAMS=-log -unattended -ini:Engine:[HTTPServer.Listeners]:DefaultBindAddress=any
       - ALWAYS_UPDATE_ON_START=true
     volumes:
-      - './serverfiles:/satisfactory'
-      - './config:/home/steam/.config/Epic'
+      - '${GAMEDIR:?GAMEDIR muss in .env gesetzt sein - siehe SETUP-MAC.md}/serverfiles:/satisfactory'
+      - '${GAMEDIR}/config:/home/steam/.config/Epic'
       - ./init-server.sh:/home/steam/init-server.sh:rw
     stdin_open: true
     tty: true

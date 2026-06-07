@@ -53,25 +53,36 @@ Laufenden Verbrauch beobachten: `docker stats satisfactory-server`
 
 Dieses Repo enthält bereits **alle** Dateien des Upstream-Projekts (basiert auf
 `sa-shiro/Satisfactory-Dedicated-Server-ARM64-Docker`) **plus** diese Anleitung — du musst das
-Upstream-Repo **nicht** separat klonen. Auf einem neuen Rechner einfach dieses Repo holen:
+Upstream-Repo **nicht** separat klonen. Der Repo-Ort ist frei wählbar und enthält **nur Code**
+(keine Spieldaten — die liegen getrennt, Schritt 3):
 ```bash
-git clone https://github.com/JojoJohnDoe/satisfactory-server-mac-mini.git
-cd satisfactory-server-mac-mini
+git clone https://github.com/JojoJohnDoe/satisfactory-server-mac-mini.git ~/Coding/satisfactory-server-mac-mini
+cd ~/Coding/satisfactory-server-mac-mini
 ```
-> Falls du das Repo schon gepullt hast und in dem Ordner bist: **diesen Schritt überspringen**,
-> mit Schritt 3 weitermachen.
+> Falls du das Repo schon hast und im Ordner bist: **diesen Schritt überspringen**, mit Schritt 3 weiter.
 
-## 3. Daten-Verzeichnisse anlegen
+## 3. Spieldaten-Ordner + `.env` anlegen
 
-Zwei Ordner werden per Volume gemountet — **mit klar getrennter Bedeutung**:
-- `config/` = Savegames + Servereinstellungen → **das einzige, was du backuppen musst**
-- `serverfiles/` = Server-Installation (~3 GB) → **regenerierbar, kein Backup**
+**Code und Spieldaten werden getrennt gehalten:**
+- **Repo** (Quellcode, in Git): z. B. `~/Coding/satisfactory-server-mac-mini`
+- **Spieldaten** (außerhalb des Repos): z. B. `~/Gameserver/Satisfactory` — darin:
+  - `config/` = Savegames + Servereinstellungen → **das einzige, was du backuppen musst**
+  - `serverfiles/` = Server-Installation (~3 GB) → **regenerierbar, kein Backup**
 
+Spieldaten-Ordner anlegen (Pfad nach Wunsch anpassen):
 ```bash
-mkdir -p serverfiles config
-chmod 777 serverfiles config init-server.sh
+mkdir -p ~/Gameserver/Satisfactory/{config,serverfiles}
+chmod 777 ~/Gameserver/Satisfactory/config ~/Gameserver/Satisfactory/serverfiles
+```
+
+Die compose erfährt über eine `.env` im **Repo-Ordner**, wo die Spieldaten liegen
+(absoluter Pfad, **kein `~`** — Docker Compose expandiert das nicht). Im Repo-Ordner:
+```bash
+echo "GAMEDIR=$HOME/Gameserver/Satisfactory" > .env   # Pfad ggf. anpassen
 chmod +x init-server.sh
 ```
+> Vorlage: [`.env.example`](.env.example). Die `.env` ist pro Maschine eigen und wird **nicht**
+> eingecheckt (gitignored) — auf dem mini also dort neu anlegen.
 
 ## 4. Image bauen (FEX wird aus Quellcode kompiliert — dauert!)
 
@@ -99,9 +110,9 @@ Er „spielt" erst, sobald er **beansprucht** ist und eine **Session läuft** (S
 > `satisfactory-arm64` (kein `build:`-Abschnitt). `docker compose up` **baut nicht selbst** —
 > deshalb zuerst Schritt 4 ausführen, sonst kommt „image not found".
 
-Die [`docker-compose.yml`](docker-compose.yml) ist direkt nutzbar (nichts anzupassen) und konfiguriert:
+Die [`docker-compose.yml`](docker-compose.yml) braucht nur die `.env` aus Schritt 3 (sonst nichts anzupassen) und konfiguriert:
 - **Ports:** `7777/udp`, `7777/tcp`, `8888/tcp`
-- **Volumes:** `./serverfiles` (Installation, regenerierbar), `./config` (Saves → Backup), `./init-server.sh` (Entrypoint)
+- **Volumes:** `$GAMEDIR/serverfiles` (Installation, regenerierbar), `$GAMEDIR/config` (Saves → Backup), `./init-server.sh` (Entrypoint aus dem Repo). `$GAMEDIR` kommt aus der `.env`.
 - **`ALWAYS_UPDATE_ON_START=true`** → Server-Auto-Update bei jedem Start (Abschnitt 10)
 - **`EXTRA_PARAMS`** → Startargumente des Servers (Logging etc.; hier auch Ports per `-Port=` o. Ä. änderbar)
 - **`restart: unless-stopped`** → Container kommt nach Reboot/Absturz von selbst wieder hoch
@@ -227,18 +238,18 @@ Zwei getrennte Dinge:
 
 ## 11. Backup & Migration (z. B. auf den Mac mini)
 
-Wichtig zu wissen, **welcher Ordner was ist**:
-- `./serverfiles` = die Server-**Installation** (~3 GB). **Nicht** sichern — wird per SteamCMD neu geladen.
-- `./config` = **Savegames + Servereinstellungen**. **Das ist das Wertvolle.**
-  - Saves: `./config/FactoryGame/Saved/SaveGames/server/*.sav`
-  - Servereinstellungen: `./config/FactoryGame/Saved/SaveGames/ServerSettings.7777.sav`
+Wichtig zu wissen, **welcher Ordner was ist** (alles unter `$GAMEDIR`, z. B. `~/Gameserver/Satisfactory`):
+- `$GAMEDIR/serverfiles` = die Server-**Installation** (~3 GB). **Nicht** sichern — wird per SteamCMD neu geladen.
+- `$GAMEDIR/config` = **Savegames + Servereinstellungen**. **Das ist das Wertvolle.**
+  - Saves: `$GAMEDIR/config/FactoryGame/Saved/SaveGames/server/*.sav`
+  - Servereinstellungen: `$GAMEDIR/config/FactoryGame/Saved/SaveGames/ServerSettings.7777.sav`
 
-**Backup:** nur `./config` sichern.
+**Backup:** nur `$GAMEDIR/config` sichern.
 
 **Umzug auf den Mac mini:** Auf dem mini Schritte 1–5 durchführen, Server **stoppen**
-(`docker compose down`), dann den Inhalt von `./config` vom alten Mac in das `./config` des minis
+(`docker compose down`), dann den Inhalt von `config/` vom alten Mac in `$GAMEDIR/config` des minis
 kopieren, wieder `docker compose up -d`. Der Server lädt die vorhandene Session automatisch
-(`autoLoadSessionName`) — Schritt 6 entfällt dann. Die `./serverfiles`-Installation **nicht** kopieren.
+(`autoLoadSessionName`) — Schritt 6 entfällt dann. `serverfiles/` **nicht** kopieren.
 
 ---
 
@@ -248,7 +259,9 @@ kopieren, wieder `docker compose up -d`. Der Server lädt die vorhandene Session
 - **`sudo docker ...` schlägt fehl** → auf dem Mac `sudo` weglassen.
 - **Build bricht mit `Killed` ab** → RAM in Docker Desktop erhöhen (≥8 GB).
 - **`ERROR: I do not have read/write permissions to /satisfactory`** →
-  `chmod 777 serverfiles config` erneut ausführen.
+  `chmod 777 "$GAMEDIR/serverfiles" "$GAMEDIR/config"` erneut ausführen.
+- **`GAMEDIR muss in .env gesetzt sein` / Volume-Fehler beim `up`** → im Repo-Ordner fehlt die `.env`
+  oder `GAMEDIR` ist leer. `.env` anlegen (Schritt 3) mit absolutem Pfad (kein `~`).
 - **`ERROR! Failed to install app '1690800' (Missing configuration)` beim ersten Start** →
   harmlos/normal. SteamCMD scheitert beim allerersten Versuch; weil `ALWAYS_UPDATE_ON_START=true`
   gesetzt ist, wird die Installation sofort automatisch wiederholt und läuft dann durch.
