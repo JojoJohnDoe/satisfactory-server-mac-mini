@@ -87,6 +87,18 @@ Fertig, sobald `Server API listening on 0.0.0.0:7777` und `Engine is initialized
 Ein frisch gestarteter Server steht dann auf `WaitingToStart` (Auto-Pause) — das ist normal:
 Er „spielt" erst, sobald er **beansprucht** ist und eine **Session läuft** (Schritt 6).
 
+> **Wichtig:** Die [`docker-compose.yml`](docker-compose.yml) nutzt das **vorgebaute Image**
+> `satisfactory-arm64` (kein `build:`-Abschnitt). `docker compose up` **baut nicht selbst** —
+> deshalb zuerst Schritt 4 ausführen, sonst kommt „image not found".
+
+Die [`docker-compose.yml`](docker-compose.yml) ist direkt nutzbar (nichts anzupassen) und konfiguriert:
+- **Ports:** `7777/udp`, `7777/tcp`, `8888/tcp`
+- **Volumes:** `./satisfactory` (Installation), `./config` (Saves), `./init-server.sh` (Entrypoint)
+- **`ALWAYS_UPDATE_ON_START=true`** → Server-Auto-Update bei jedem Start (Abschnitt 10)
+- **`EXTRA_PARAMS`** → Startargumente des Servers (Logging etc.; hier auch Ports per `-Port=` o. Ä. änderbar)
+- **`restart: unless-stopped`** → Container kommt nach Reboot/Absturz von selbst wieder hoch
+  (sofern Docker Desktop beim Login automatisch startet — empfehlenswert für einen Dauerserver)
+
 ## 6. Server beanspruchen & Spiel anlegen (Pflicht nach dem ersten Start)
 
 Ohne diesen Schritt kann niemand beitreten (sonst `EncryptionTokenMissing`). Zwei Wege — einer reicht:
